@@ -4,7 +4,8 @@ WORKDIR /app/frontend
 
 # Install node dependencies
 COPY frontend/package.json ./
-RUN npm install
+COPY frontend/package-lock.json ./
+RUN npm ci --silent
 
 # Copy source and build files (excluding node_modules due to .dockerignore)
 COPY frontend/ ./
@@ -15,7 +16,6 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Ensure standard output and error streams are sent straight to terminal (unbuffered)
-# This allows container logs to appear in real-time in Google Cloud Logging (Stackdriver)
 ENV PYTHONUNBUFFERED=1
 
 # Install python dependencies
@@ -35,7 +35,5 @@ EXPOSE 8080
 ENV PORT=8080
 ENV HOST=0.0.0.0
 
-# Start Uvicorn using exec to replace the shell process
-# This ensures that Uvicorn runs as PID 1, allowing it to correctly receive
-# SIGTERM and other termination signals for graceful shutdown on Cloud Run.
-CMD ["sh", "-c", "exec uvicorn main:app --host $HOST --port $PORT"]
+# Start Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
