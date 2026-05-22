@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+# Node
+node_modules/
+frontend/dist/
+# Docker
+.dockerignore
+# IDE/editor files
+.vscode/
+*.swp
+.DS_Store
