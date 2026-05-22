@@ -1,14 +1,22 @@
 # Stage 1: Build the React frontend
-FROM node:18 AS frontend-build
+FROM node:18-alpine AS frontend-build
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install node dependencies
+COPY frontend/package.json ./
 RUN npm install
+
+# Copy source and build files (excluding node_modules due to .dockerignore)
 COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build the FastAPI backend and serve frontend
 FROM python:3.11-slim
 WORKDIR /app
+
+# Ensure standard output and error streams are sent straight to terminal (unbuffered)
+# This allows container logs to appear in real-time in Google Cloud Logging (Stackdriver)
+ENV PYTHONUNBUFFERED=1
 
 # Install python dependencies
 COPY requirements.txt .
@@ -27,5 +35,7 @@ EXPOSE 8080
 ENV PORT=8080
 ENV HOST=0.0.0.0
 
-# Start Uvicorn
-CMD ["sh", "-c", "uvicorn main:app --host $HOST --port $PORT"]
+# Start Uvicorn using exec to replace the shell process
+# This ensures that Uvicorn runs as PID 1, allowing it to correctly receive
+# SIGTERM and other termination signals for graceful shutdown on Cloud Run.
+CMD ["sh", "-c", "exec uvicorn main:app --host $HOST --port $PORT"]
