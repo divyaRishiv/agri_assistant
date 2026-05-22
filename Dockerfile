@@ -1,4 +1,9 @@
-# Stage 1: Build the React frontend
+# Stage 1: Build the FastAPI backend and serve frontend
+FROM python:3.11-slim
+WORKDIR /app
+
+
+# Stage 2: Build the React frontend
 FROM node:18-alpine AS frontend-build
 WORKDIR /app/frontend
 
@@ -10,10 +15,6 @@ RUN npm ci --silent
 # Copy source and build files (excluding node_modules due to .dockerignore)
 COPY frontend/ ./
 RUN npm run build
-
-# Stage 2: Build the FastAPI backend and serve frontend
-FROM python:3.11-slim
-WORKDIR /app
 
 # Ensure standard output and error streams are sent straight to terminal (unbuffered)
 ENV PYTHONUNBUFFERED=1
