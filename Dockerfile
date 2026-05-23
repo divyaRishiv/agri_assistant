@@ -1,40 +1,55 @@
-# Stage 1: Build the FastAPI backend and serve frontend
-FROM python:3.11-slim
-WORKDIR /app
-
-
-# Stage 2: Build the React frontend
+# =============================
+# Stage 1: Build React Frontend
+# =============================
 FROM node:18-alpine AS frontend-build
+
 WORKDIR /app/frontend
 
-# Install node dependencies
-COPY frontend/package.json ./
-COPY frontend/package-lock.json ./
-RUN npm ci --silent
+# Copy package files
+COPY frontend/package*.json ./
 
-# Copy source and build files (excluding node_modules due to .dockerignore)
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source code
 COPY frontend/ ./
+
+# Build frontend
 RUN npm run build
 
-# Ensure standard output and error streams are sent straight to terminal (unbuffered)
+
+# =============================
+# Stage 2: Build FastAPI Backend
+# =============================
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Prevent Python buffering
 ENV PYTHONUNBUFFERED=1
 
-# Install python dependencies
+# Install system dependencies if needed
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for caching
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy FastAPI backend code
-COPY main.py .
+# Copy backend source files
+COPY . .
 
-# Copy built frontend from stage 1
-COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
+# Copy built frontend from previous stage
+COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-# Expose port for Google Cloud Run (default is 8080)
+# Cloud Run expects container to listen on PORT
+ENV PORT=8080
+
+# Expose Cloud Run port
 EXPOSE 8080
 
-# Environment variables
-ENV PORT=8080
-ENV HOST=0.0.0.0
-
-# Start Uvicorn
+# Start FastAPI application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
