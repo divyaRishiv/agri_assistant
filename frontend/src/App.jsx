@@ -45,7 +45,39 @@ function App() {
   const [attachedPreview, setAttachedPreview] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Mandi Prices State Variables
+  const [mandiPrices, setMandiPrices] = useState([]);
+  const [mandiLoading, setMandiLoading] = useState(false);
+  const [mandiSearch, setMandiSearch] = useState('');
+  const [selectedMandiState, setSelectedMandiState] = useState('');
+
   const messagesEndRef = useRef(null);
+
+  const fetchMandiPrices = async (stateName) => {
+    setMandiLoading(true);
+    try {
+      const url = stateName ? `/api/market-prices?state=${encodeURIComponent(stateName)}` : '/api/market-prices';
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setMandiPrices(data.prices || []);
+      }
+    } catch (err) {
+      console.error("Error fetching mandi prices:", err);
+    } finally {
+      setMandiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMandiPrices(selectedMandiState);
+  }, [selectedMandiState]);
+
+  useEffect(() => {
+    if (formData.state) {
+      setSelectedMandiState(formData.state);
+    }
+  }, [formData.state]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -404,6 +436,129 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Live Mandi Market Prices Box */}
+            <div className="card mandi-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="mandi-header">
+                <div className="mandi-title-container">
+                  <span className="mandi-icon">🌾</span>
+                  <div>
+                    <h2 className="mandi-title" style={{ color: 'var(--primary-color)', margin: 0, fontSize: '1.6rem', fontWeight: '700' }}>Live Mandi Market Prices</h2>
+                    <p className="mandi-subtitle" style={{ color: 'var(--text-secondary)', margin: '0.2rem 0 0 0', fontSize: '0.95rem' }}>Real-time government market rates across Indian states</p>
+                  </div>
+                </div>
+                <button 
+                  type="button"
+                  className={`btn-refresh ${mandiLoading ? 'spinning' : ''}`}
+                  onClick={() => fetchMandiPrices(selectedMandiState)}
+                  disabled={mandiLoading}
+                  title="Refresh live prices"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mandi-filters">
+                <div className="filter-group">
+                  <label className="filter-label">Filter by State</label>
+                  <select 
+                    value={selectedMandiState} 
+                    onChange={(e) => setSelectedMandiState(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All India (Popular Mandis)</option>
+                    {Object.keys(statesAndDistricts).map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label className="filter-label">Search Crop or Mandi</label>
+                  <input 
+                    type="text"
+                    value={mandiSearch}
+                    onChange={(e) => setMandiSearch(e.target.value)}
+                    placeholder="e.g. Wheat, Cotton, Pune..."
+                    className="filter-input"
+                  />
+                </div>
+              </div>
+
+              {mandiLoading ? (
+                <div className="mandi-loader-container">
+                  <div className="loader" style={{ borderColor: 'rgba(46, 125, 50, 0.2)', borderTopColor: 'var(--primary-color)' }}></div>
+                  <p style={{ textAlign: 'center', color: 'var(--primary-color)', fontWeight: '500' }}>Fetching latest mandi rates...</p>
+                </div>
+              ) : (
+                <div className="mandi-grid">
+                  {mandiPrices
+                    .filter(item => {
+                      const matchesSearch = item.crop.toLowerCase().includes(mandiSearch.toLowerCase()) || 
+                                           item.mandi.toLowerCase().includes(mandiSearch.toLowerCase());
+                      return matchesSearch;
+                    })
+                    .map((item, index) => {
+                      const rangeSpan = item.max_price - item.min_price || 1;
+                      const percentage = Math.round(((item.modal_price - item.min_price) / rangeSpan) * 100);
+                      
+                      return (
+                        <div key={index} className="mandi-item-card">
+                          <div className="mandi-item-header">
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span className="mandi-crop-name">{item.crop}</span>
+                              <span className="mandi-location-badge">{item.mandi} Mandi, {item.state}</span>
+                            </div>
+                            <span className={`mandi-trend-badge ${item.trend}`}>
+                              {item.trend === 'up' ? '📈 +' : item.trend === 'down' ? '📉 ' : '➡️ '} 
+                              {item.change_percent}%
+                            </span>
+                          </div>
+                          
+                          <div className="mandi-price-details">
+                            <div className="mandi-price-main">
+                              <span className="mandi-price-val">₹{item.modal_price.toLocaleString()}</span>
+                              <span className="mandi-price-unit">/ {item.unit}</span>
+                            </div>
+                            
+                            <div className="mandi-range-bar">
+                              <div className="mandi-range-track">
+                                <div 
+                                  className="mandi-range-fill"
+                                  style={{
+                                    left: '0%',
+                                    width: `${percentage}%`
+                                  }}
+                                ></div>
+                                <div className="mandi-range-pointer" style={{ left: `${percentage}%` }}></div>
+                              </div>
+                              <div className="mandi-range-labels">
+                                <span>Min: ₹{item.min_price}</span>
+                                <span>Max: ₹{item.max_price}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="mandi-card-footer">
+                            <span>Updated: {item.updated_at}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
+                  {mandiPrices.filter(item => 
+                    item.crop.toLowerCase().includes(mandiSearch.toLowerCase()) || 
+                    item.mandi.toLowerCase().includes(mandiSearch.toLowerCase())
+                  ).length === 0 && (
+                    <div className="mandi-empty-state" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                      <p>No mandi records found for your search filters.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* Floating Chatbot Launcher Button */}

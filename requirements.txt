@@ -5,3 +5,4 @@ openai==1.13.3
 python-dotenv==1.0.1
 aiofiles==23.2.1
 python-multipart==0.0.9
+mcp>=1.0.0

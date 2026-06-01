@@ -945,5 +945,253 @@ input[type="range"] {
   margin-left: 0.5rem;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   LIVE MANDI PRICES STYLING
+   ───────────────────────────────────────────────────────────────────── */
+
+.mandi-card {
+  margin-top: 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.mandi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #E8F5E9;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.mandi-title-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.mandi-icon {
+  font-size: 2.2rem;
+  background: #E8F5E9;
+  padding: 0.5rem;
+  border-radius: 12px;
+}
+
+.btn-refresh {
+  background: #E8F5E9;
+  color: var(--primary-color);
+  border: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-refresh:hover {
+  background: var(--secondary-color);
+  color: var(--surface-color);
+  transform: rotate(30deg);
+}
+
+.btn-refresh.spinning svg {
+  animation: spin 1s linear infinite;
+}
+
+.mandi-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 600px) {
+  .mandi-filters {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.filter-select,
+.filter-input {
+  width: 100% !important;
+  padding: 0.8rem 1.2rem !important;
+  border: 2px solid #E8F5E9 !important;
+  border-radius: 10px !important;
+  font-size: 0.95rem !important;
+  background: #FAFAFA !important;
+  box-shadow: none !important;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+  background-color: #FFF !important;
+  border-color: var(--secondary-color) !important;
+  box-shadow: 0 0 0 4px rgba(129, 199, 132, 0.2) !important;
+}
+
+.mandi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.mandi-item-card {
+  background: #FFFFFF;
+  border: 1px solid #E8F5E9;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.04);
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mandi-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(46, 125, 50, 0.08);
+  border-color: var(--secondary-color);
+}
+
+.mandi-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.mandi-crop-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1B5E20;
+}
+
+.mandi-location-badge {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.2rem;
+}
+
+.mandi-trend-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.mandi-trend-badge.up {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.mandi-trend-badge.down {
+  background: #FFEBEE;
+  color: #C62828;
+}
+
+.mandi-trend-badge.stable {
+  background: #ECEFF1;
+  color: #37474F;
+}
+
+.mandi-price-details {
+  margin: 1rem 0;
+}
+
+.mandi-price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.mandi-price-val {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+.mandi-price-unit {
+  font-size: 0.9rem;
+  color: #777;
+  font-weight: 500;
+}
+
+.mandi-range-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.mandi-range-track {
+  height: 6px;
+  background: #E8F5E9;
+  border-radius: 3px;
+  position: relative;
+}
+
+.mandi-range-fill {
+  height: 100%;
+  background: var(--secondary-color);
+  border-radius: 3px;
+  position: absolute;
+}
+
+.mandi-range-pointer {
+  width: 12px;
+  height: 12px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #FFF;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.mandi-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.mandi-card-footer {
+  border-top: 1px solid #F1F8E9;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #999;
+  font-weight: 500;
+}
+
+.mandi-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  gap: 1rem;
+}
+
+
 
 
