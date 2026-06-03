@@ -18,6 +18,7 @@ const seasons = ["Kharif", "Rabi", "Zaid"];
 
 function App() {
   const [formData, setFormData] = useState({
+    email: '',
     state: '',
     district: '',
     soil_type: '',
@@ -236,6 +237,18 @@ function App() {
           <div className="container">
             <form className="card" onSubmit={handleSubmit}>
               
+              <div className="form-group">
+                <label>Email Address</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  value={formData.email} 
+                  onChange={handleChange} 
+                  placeholder="farmer@example.com"
+                  required
+                />
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>State</label>
@@ -343,6 +356,45 @@ function App() {
                 </div>
               ) : recommendation ? (
                 <div className="recommendations-container">
+                  {recommendation.pdf_url && (
+                    <div className="pdf-delivery-banner" style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      padding: '1rem',
+                      borderRadius: '8px',
+                      marginBottom: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <span style={{ fontWeight: '600', color: '#FFF' }}>📧 Report Sent Successfully!</span>
+                        <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.8)' }}>A PDF copy has been sent to <strong>{formData.email}</strong>.</span>
+                      </div>
+                      <a 
+                        href={recommendation.pdf_url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="btn-download-pdf"
+                        style={{
+                          background: 'var(--accent-color)',
+                          color: '#000',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '4px',
+                          textDecoration: 'none',
+                          fontWeight: '600',
+                          fontSize: '0.9rem',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                          transition: 'all 0.2s ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem'
+                        }}
+                      >
+                        📥 Download PDF
+                      </a>
+                    </div>
+                  )}
                   <div className="section-title">
                     <h2>Seasonal Suitability</h2>
                     <div className="suitability-badge-overall" style={{

@@ -3,6 +3,12 @@ import json
 import shutil
 import uuid
 import base64
+import datetime
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email.encoders import encode_base64
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +16,12 @@ from pydantic import BaseModel
 from typing import Optional
 from openai import OpenAI
 from dotenv import load_dotenv
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
 
 load_dotenv()
 
@@ -651,6 +663,272 @@ Rules:
     # Local fallback
     return get_fallback_disease(filename, image_bytes)
 
+
+class FarmData(BaseModel):
+    email: str
+    state: str
+    district: str
+    soil_type: str
+    season: str
+    irrigation: str
+    water_source: str
+    farm_size: Optional[str] = ""
+    previous_crop: Optional[str] = ""
+
+
+def generate_pdf_report(data: FarmData, rec_data: dict) -> str:
+    # Ensure reports folder exists inside uploads
+    reports_dir = os.path.join(os.path.dirname(__file__), "uploads", "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    
+    unique_id = uuid.uuid4().hex[:8]
+    filename = f"crop_recommendation_{unique_id}.pdf"
+    pdf_path = os.path.join(reports_dir, filename)
+    
+    # Create the doc
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    story = []
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=20,
+        leading=24,
+        textColor=colors.HexColor('#1B5E20'), # Deep Green
+        spaceAfter=15
+    )
+    
+    h2_style = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor('#2E7D32'), # Medium Green
+        spaceBefore=12,
+        spaceAfter=6,
+        keepWithNext=True
+    )
+    
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['BodyText'],
+        fontName='Helvetica',
+        fontSize=9.5,
+        leading=13,
+        textColor=colors.HexColor('#333333'),
+        spaceAfter=6
+    )
+    
+    bold_body_style = ParagraphStyle(
+        'BoldBody',
+        parent=body_style,
+        fontName='Helvetica-Bold'
+    )
+    
+    warning_style = ParagraphStyle(
+        'Warning',
+        parent=body_style,
+        textColor=colors.HexColor('#C62828'), # Dark Red
+        fontName='Helvetica-Bold'
+    )
+    
+    # Title
+    story.append(Paragraph("Kisan Mitra AI - Smart Crop Recommendation Report", title_style))
+    story.append(Spacer(1, 10))
+    
+    # metadata table
+    meta_data = [
+        [Paragraph("<b>Farmer Email:</b>", body_style), Paragraph(data.email, body_style),
+         Paragraph("<b>Season:</b>", body_style), Paragraph(data.season, body_style)],
+        [Paragraph("<b>State:</b>", body_style), Paragraph(data.state, body_style),
+         Paragraph("<b>District:</b>", body_style), Paragraph(data.district, body_style)],
+        [Paragraph("<b>Soil Type:</b>", body_style), Paragraph(data.soil_type, body_style),
+         Paragraph("<b>Irrigation:</b>", body_style), Paragraph(data.irrigation, body_style)],
+        [Paragraph("<b>Water Source:</b>", body_style), Paragraph(data.water_source, body_style),
+         Paragraph("<b>Farm Size:</b>", body_style), Paragraph(f"{data.farm_size} Acres" if data.farm_size else "N/A", body_style)],
+        [Paragraph("<b>Previous Crop:</b>", body_style), Paragraph(data.previous_crop if data.previous_crop else "N/A", body_style),
+         Paragraph("<b>Date:</b>", body_style), Paragraph(datetime.date.today().strftime('%d %B %Y'), body_style)]
+    ]
+    
+    meta_table = Table(meta_data, colWidths=[1.5*inch, 2.0*inch, 1.5*inch, 2.0*inch])
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F8E9')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#DCEDC8')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#C5E1A5')),
+    ]))
+    
+    story.append(meta_table)
+    story.append(Spacer(1, 15))
+    
+    # Seasonal Suitability Analysis
+    analysis = rec_data.get("seasonal_analysis", {})
+    story.append(Paragraph("Seasonal Suitability Analysis", h2_style))
+    suit_score = analysis.get("suitability_score", "N/A")
+    story.append(Paragraph(f"<b>Overall Suitability Score:</b> {suit_score}%", body_style))
+    story.append(Paragraph(analysis.get("summary", ""), body_style))
+    
+    if analysis.get("general_advice"):
+        story.append(Paragraph(f"<b>General Advice:</b> {analysis.get('general_advice')}", body_style))
+        
+    story.append(Spacer(1, 10))
+    
+    # Critical Warnings
+    warnings = rec_data.get("critical_warnings", [])
+    if warnings:
+        story.append(Paragraph("⚠️ Critical Alerts", h2_style))
+        for warning in warnings:
+            story.append(Paragraph(f"• {warning}", warning_style))
+        story.append(Spacer(1, 10))
+        
+    # Recommended Crops
+    story.append(Paragraph("Recommended Crops", h2_style))
+    rec_crops = rec_data.get("recommended_crops", [])
+    for crop in rec_crops:
+        crop_story = []
+        crop_title_style = ParagraphStyle(
+            'CropTitle',
+            parent=body_style,
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            leading=14,
+            textColor=colors.HexColor('#2E7D32')
+        )
+        crop_story.append(Paragraph(f"<b>{crop.get('name')}</b> (Suitability Score: {crop.get('suitability_score')}% | Water: {crop.get('water_need_category')} | Demand: {crop.get('market_demand')} | Growing Period: {crop.get('growing_period')})", crop_title_style))
+        crop_story.append(Spacer(1, 4))
+        
+        crop_details = [
+            [Paragraph("<b>Why Recommended:</b>", body_style), Paragraph(crop.get("why_recommended", ""), body_style)],
+            [Paragraph("<b>Water Management:</b>", body_style), Paragraph(crop.get("water_suitability_explanation", ""), body_style)],
+            [Paragraph("<b>Fertilizer Plan:</b>", body_style), Paragraph(crop.get("fertilizer_recommendation", ""), body_style)],
+            [Paragraph("<b>Expected Yield:</b>", body_style), Paragraph(crop.get("expected_yield", ""), bold_body_style)]
+        ]
+        
+        crop_table = Table(crop_details, colWidths=[1.8*inch, 5.2*inch])
+        crop_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')),
+        ]))
+        
+        crop_story.append(crop_table)
+        crop_story.append(Spacer(1, 12))
+        
+        story.append(KeepTogether(crop_story))
+        
+    # Unsuitable Crops
+    unsuitable = rec_data.get("unsuitable_crops", [])
+    if unsuitable:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("❌ High Risk / Unsuitable Crops", h2_style))
+        for crop in unsuitable:
+            story.append(Paragraph(f"<b>{crop.get('name')}:</b> {crop.get('reason')}", body_style))
+            
+    doc.build(story)
+    return f"/uploads/reports/{filename}"
+
+
+def send_email_report(to_email: str, pdf_rel_path: str):
+    SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    # Strip spaces and dashes from App Password (Gmail App Passwords may be typed with dashes)
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").replace(" ", "").replace("-", "")
+    # BUG FIX: Gmail SMTP requires the sender address to match the authenticated account.
+    # Using a custom domain (e.g. no-reply@kisanmitra.ai) causes a relay/auth rejection.
+    # Fall back to SMTP_USER (authenticated Gmail address) if SMTP_FROM is not a Gmail address.
+    SMTP_FROM_env = os.environ.get("SMTP_FROM", "")
+    if SMTP_FROM_env and SMTP_FROM_env.endswith("@gmail.com"):
+        SMTP_FROM = SMTP_FROM_env
+    else:
+        # Use authenticated Gmail account as sender to avoid relay rejection
+        SMTP_FROM = SMTP_USER
+
+    # Basic email validation
+    if not to_email or "@" not in to_email:
+        print(f"Invalid recipient email address: '{to_email}'. Skipping email delivery.")
+        return False
+
+    pdf_abs_path = os.path.join(os.path.dirname(__file__), pdf_rel_path.lstrip("/").replace("/", os.sep))
+
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print(f"SMTP Credentials not configured in .env. Skipping email delivery of {pdf_abs_path} to {to_email}.")
+        return False
+
+    if not os.path.exists(pdf_abs_path):
+        print(f"PDF report not found at '{pdf_abs_path}'. Cannot send email.")
+        return False
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_FROM
+        msg['To'] = to_email
+        msg['Subject'] = "Your Kisan Mitra AI Crop Recommendation Report"
+
+        body = (
+            "Namaste,\n\n"
+            "Please find attached your personalised crop recommendation report generated by Kisan Mitra AI — "
+            "your Smart Agriculture Assistant.\n\n"
+            "This report is tailored specifically for your region, soil type, and cropping season "
+            "to help you achieve the best harvest.\n\n"
+            "Wishing you a successful farming season!\n\n"
+            "Best regards,\n"
+            "Kisan Mitra AI Team"
+        )
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        # Attach PDF
+        with open(pdf_abs_path, 'rb') as f:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(f.read())
+            encode_base64(part)
+            part.add_header(
+                'Content-Disposition',
+                f'attachment; filename="{os.path.basename(pdf_abs_path)}"'
+            )
+            msg.attach(part)
+
+        # Connect and send with a timeout to avoid indefinite hangs
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_FROM, [to_email], msg.as_string())
+        server.quit()
+        print(f"Email successfully sent to {to_email} with report {pdf_abs_path}")
+        return True
+    except smtplib.SMTPAuthenticationError as e:
+        print(
+            f"SMTP Authentication failed for user '{SMTP_USER}'. "
+            "Please check your Gmail App Password in .env (Google Account > Security > App Passwords). "
+            f"Error: {e}"
+        )
+        return False
+    except smtplib.SMTPRecipientsRefused as e:
+        print(f"Recipient address '{to_email}' was refused by the SMTP server: {e}")
+        return False
+    except smtplib.SMTPException as e:
+        print(f"SMTP error while sending email to {to_email}: {e}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error while sending email to {to_email}: {e}")
+        return False
+
+
 app = FastAPI(title="Agriculture Assistant API")
 
 app.add_middleware(
@@ -661,15 +939,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class FarmData(BaseModel):
-    state: str
-    district: str
-    soil_type: str
-    season: str
-    irrigation: str
-    water_source: str
-    farm_size: Optional[str] = ""
-    previous_crop: Optional[str] = ""
 
 client = OpenAI(
     api_key=os.environ.get("GROQ_API_KEY", "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"),
@@ -731,6 +1000,8 @@ Rules:
 - Return ONLY the raw JSON object. Do not wrap in markdown codeblocks (e.g. ```json) or add any extra text.
 """
 
+    # 1. Get recommendation
+    result = None
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -743,10 +1014,20 @@ Rules:
         )
         import json
         result = json.loads(response.choices[0].message.content)
-        return result
     except Exception as e:
         print(f"Groq API failed for /api/recommend: {e}. Using local fallback recommendation engine...")
-        return get_local_crop_recommendations(data)
+        result = get_local_crop_recommendations(data)
+
+    # 2. Generate PDF and send email
+    try:
+        pdf_url = generate_pdf_report(data, result)
+        result["pdf_url"] = pdf_url
+        send_email_report(data.email, pdf_url)
+    except Exception as pdf_err:
+        print(f"Failed to generate report or send email: {pdf_err}")
+        result["pdf_url"] = None
+
+    return result
 
 @app.post("/api/chat")
 async def chat_endpoint(

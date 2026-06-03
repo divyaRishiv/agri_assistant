@@ -27,6 +27,7 @@ async def get_crop_recommendations(
     season: str,
     irrigation: str,
     water_source: str,
+    email: Optional[str] = "",
     farm_size: Optional[str] = "",
     previous_crop: Optional[str] = ""
 ) -> str:
@@ -40,11 +41,13 @@ async def get_crop_recommendations(
         season: Cropping season (Kharif, Rabi, Zaid)
         irrigation: Irrigation availability level (Rain-fed, Low, Medium, High)
         water_source: Water source availability level (1 for Very Low to 5 for Very High)
+        email: Farmer's email address to receive the PDF report (optional)
         farm_size: Farm size in acres (optional)
         previous_crop: Previously cultivated crop in the farm (optional)
     """
     # Create the FarmData schema object
     data = FarmData(
+        email=email or "",
         state=state,
         district=district,
         soil_type=soil_type,
