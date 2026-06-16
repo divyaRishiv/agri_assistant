@@ -45,6 +45,7 @@ function App() {
   const [attachedFile, setAttachedFile] = useState(null);
   const [attachedPreview, setAttachedPreview] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatMemory, setChatMemory] = useState(null);
 
   // Mandi Prices State Variables
   const [mandiPrices, setMandiPrices] = useState([]);
@@ -89,6 +90,62 @@ function App() {
       scrollToBottom();
     }
   }, [chatMessages, chatLoading, currentView]);
+
+  useEffect(() => {
+    if (currentView === 'chatbot') {
+      // Always reset chat to a clean state with just the welcome message initially
+      const defaultGreeting = {
+        role: 'assistant',
+        content: "Welcome to Agri AI Assistant. Upload a crop image to detect possible diseases."
+      };
+      setChatMessages([defaultGreeting]);
+      setChatMemory(null);
+
+      if (formData.email && formData.email.trim()) {
+        const fetchMemory = async () => {
+          try {
+            const res = await fetch(`/api/chat/memory?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.status === 'success' && data.memory) {
+                const { last_crop, last_disease } = data.memory;
+                setChatMemory(data.memory);
+                setChatMessages([
+                  {
+                    role: 'assistant',
+                    content: `Welcome back! I remember that your ${last_crop} suffered from ${last_disease} last time. How is your crop doing now? Feel free to ask any follow-up questions or upload a new leaf image for diagnosis.`
+                  }
+                ]);
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching chat memory:", err);
+          }
+        };
+        fetchMemory();
+      }
+    }
+  }, [currentView, formData.email]);
+
+  const handleClearMemory = async () => {
+    if (!formData.email) return;
+    try {
+      const res = await fetch(`/api/chat/memory?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setChatMemory(null);
+        setChatMessages([
+          {
+            role: 'assistant',
+            content: "Welcome to Agri AI Assistant. Upload a crop image to detect possible diseases."
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error("Error clearing chat memory:", err);
+    }
+  };
 
   const availableDistricts = formData.state ? statesAndDistricts[formData.state] || [] : [];
 
@@ -182,6 +239,9 @@ function App() {
     if (attachedFile) {
       formDataPayload.append('image', attachedFile);
     }
+    if (formData.email) {
+      formDataPayload.append('email', formData.email);
+    }
 
     // Exclude first welcome message for context history
     const historyList = chatMessages
@@ -206,6 +266,14 @@ function App() {
       }
 
       const data = await response.json();
+      
+      if (data.disease_details) {
+        setChatMemory({
+          last_crop: data.disease_details.crop,
+          last_disease: data.disease_details.disease,
+          timestamp: new Date().toISOString()
+        });
+      }
       
       const localAiMsg = {
         role: 'assistant',
@@ -637,6 +705,14 @@ function App() {
                   <span>Online & Ready</span>
                 </div>
               </div>
+              {chatMemory && (
+                <div className="chatbot-memory-badge" title={`Remembered history: Last diagnosed crop was ${chatMemory.last_crop} with ${chatMemory.last_disease}`}>
+                  <span>🧠 Recalls: {chatMemory.last_crop}</span>
+                  <button type="button" className="btn-clear-memory" onClick={handleClearMemory} title="Clear chatbot memory">
+                    &times;
+                  </button>
+                </div>
+              )}
             </div>
             <button className="btn-back" onClick={() => setCurrentView('recommendation')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'rotate(180deg)' }}>

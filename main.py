@@ -1029,11 +1029,46 @@ Rules:
 
     return result
 
+@app.get("/api/chat/memory")
+async def get_chat_memory(email: str):
+    memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
+    if os.path.exists(memory_file):
+        try:
+            with open(memory_file, "r", encoding="utf-8") as f:
+                memory_db = json.load(f)
+            cleaned_email = email.strip().lower()
+            user_mem = memory_db.get(cleaned_email)
+            if user_mem:
+                return {"status": "success", "memory": user_mem}
+        except Exception as e:
+            print(f"Error reading chat memory: {e}")
+    return {"status": "success", "memory": None}
+
+@app.delete("/api/chat/memory")
+async def delete_chat_memory(email: str):
+    memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
+    if os.path.exists(memory_file):
+        try:
+            with open(memory_file, "r", encoding="utf-8") as f:
+                memory_db = json.load(f)
+            cleaned_email = email.strip().lower()
+            if cleaned_email in memory_db:
+                del memory_db[cleaned_email]
+                with open(memory_file, "w", encoding="utf-8") as f:
+                    json.dump(memory_db, f, indent=2)
+                return {"status": "success", "message": "Memory cleared successfully"}
+        except Exception as e:
+            print(f"Error deleting chat memory: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete chat memory: {str(e)}")
+    return {"status": "success", "message": "No memory found to clear"}
+
+
 @app.post("/api/chat")
 async def chat_endpoint(
     message: Optional[str] = Form(None),
     history: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None)
+    image: Optional[UploadFile] = File(None),
+    email: Optional[str] = Form(None)
 ):
     # Parse history if present
     parsed_history = []
@@ -1089,14 +1124,56 @@ async def chat_endpoint(
                 "type": "thought",
                 "content": f"Reasoning: The tool successfully identified {observation['crop']} {observation['disease']} ({observation['confidence']}% confidence). I will now generate a friendly, clear explanation with recommended actions focusing on organic solutions, and prevention measures."
             })
+
+            # Save to memory if email is provided
+            if email and email.strip():
+                cleaned_email = email.strip().lower()
+                memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
+                memory_db = {}
+                if os.path.exists(memory_file):
+                    try:
+                        with open(memory_file, "r", encoding="utf-8") as f:
+                            memory_db = json.load(f)
+                    except Exception:
+                        pass
+                memory_db[cleaned_email] = {
+                    "last_crop": observation['crop'],
+                    "last_disease": observation['disease'],
+                    "timestamp": datetime.datetime.now().isoformat()
+                }
+                try:
+                    with open(memory_file, "w", encoding="utf-8") as f:
+                        json.dump(memory_db, f, indent=2)
+                except Exception as e:
+                    print(f"Error saving chat memory: {e}")
             
         except Exception as e:
             import traceback
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Error processing upload: {str(e)}")
 
+    # Retrieve memory if present
+    last_crop = None
+    last_disease = None
+    if email and email.strip():
+        cleaned_email = email.strip().lower()
+        memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
+        if os.path.exists(memory_file):
+            try:
+                with open(memory_file, "r", encoding="utf-8") as f:
+                    memory_db = json.load(f)
+                user_mem = memory_db.get(cleaned_email)
+                if user_mem:
+                    last_crop = user_mem.get("last_crop")
+                    last_disease = user_mem.get("last_disease")
+            except Exception:
+                pass
 
     # Prepare system prompt
+    memory_context = ""
+    if last_crop and last_disease:
+        memory_context = f"\nNote: The farmer's crop previously suffered from {last_disease} on {last_crop}. If relevant or asked, feel free to reference this history to provide a highly personalized, contextual experience."
+
     if observation:
         actions_str = "\n".join([f"- {action}" for action in observation['recommended_action']])
         prevention_str = "\n".join([f"- {prev}" for prev in observation['prevention']])
@@ -1105,6 +1182,7 @@ async def chat_endpoint(
 You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers. 
 A farmer has uploaded an image of a crop leaf and the disease detection tool returned this result:
 {json.dumps(observation, indent=2)}
+{memory_context}
 
 Explain these results to the farmer in simple, friendly, conversational language.
 
@@ -1128,9 +1206,10 @@ Prevention:
 Follow up with a supportive message telling them they can ask any questions about this disease, treatment, or precautions!
 """
     else:
-        sys_prompt = """
+        sys_prompt = f"""
 You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers.
 Answer the farmer's question in a simple, friendly, and easy-to-understand conversational language.
+{memory_context}
 
 Prompt Engineering & Communication Rules:
 1. Keep responses short and direct. Avoid complex scientific terminology.

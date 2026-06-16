@@ -1,0 +1,17 @@
+{
+  "test_verification@farmer.com": {
+    "last_crop": "Tomato",
+    "last_disease": "Early Blight",
+    "timestamp": "2026-06-16T17:54:28.157245"
+  },
+  "rishivdivya@gmail.com": {
+    "last_crop": "Maize",
+    "last_disease": "Powdery Mildew",
+    "timestamp": "2026-06-16T18:33:59.961048"
+  },
+  "deepika.munnuru@gmail.com": {
+    "last_crop": "Rice",
+    "last_disease": "Leaf Blight",
+    "timestamp": "2026-06-16T22:27:20.556347"
+  }
+}
