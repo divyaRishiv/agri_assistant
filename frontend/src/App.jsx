@@ -242,6 +242,18 @@ function App() {
     if (formData.email) {
       formDataPayload.append('email', formData.email);
     }
+    if (formData.state) {
+      formDataPayload.append('state', formData.state);
+    }
+    if (formData.district) {
+      formDataPayload.append('district', formData.district);
+    }
+    if (formData.farm_size) {
+      formDataPayload.append('farm_size', formData.farm_size);
+    }
+    if (formData.previous_crop) {
+      formDataPayload.append('previous_crop', formData.previous_crop);
+    }
 
     // Exclude first welcome message for context history
     const historyList = chatMessages
@@ -783,6 +795,9 @@ function App() {
 
           {/* Quick Replies list */}
           <div className="quick-replies-container">
+            <button className="quick-reply-pill" onClick={(e) => handleSendChat(e, "What subsidies am I eligible for?")}>
+              💸 Eligible Subsidies?
+            </button>
             <button className="quick-reply-pill" onClick={(e) => handleSendChat(e, "Are there organic treatments?")}>
               🌱 Organic Solutions?
             </button>

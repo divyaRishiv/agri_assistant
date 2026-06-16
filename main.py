@@ -25,6 +25,91 @@ from reportlab.lib.units import inch
 
 load_dotenv()
 
+# ─────────────────────────────────────────────────────────────────────
+# RAG RETRIEVAL ENGINE: Government Schemes
+# ─────────────────────────────────────────────────────────────────────
+
+SCHEMES_DB_PATH = os.path.join(os.path.dirname(__file__), "schemes_db.json")
+
+def load_schemes_db() -> list:
+    if os.path.exists(SCHEMES_DB_PATH):
+        try:
+            with open(SCHEMES_DB_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading schemes database: {e}")
+    return []
+
+def retrieve_eligible_schemes(state: Optional[str] = None, crop: Optional[str] = None, farm_size: Optional[str] = None, query: Optional[str] = None) -> list:
+    """
+    RAG Retrieval Engine to filter government schemes based on:
+    - Farmer location (state)
+    - Crop type (crop or keywords in query)
+    - Land size (farm_size in acres)
+    """
+    schemes = load_schemes_db()
+    if not schemes:
+        return []
+
+    # Parse farm size to float
+    parsed_farm_size = None
+    if farm_size:
+        try:
+            parsed_farm_size = float(str(farm_size).strip())
+        except ValueError:
+            pass
+
+    eligible = []
+    
+    # Standardize inputs
+    state_clean = state.strip().lower() if state else ""
+    crop_clean = crop.strip().lower() if crop else ""
+    query_clean = query.strip().lower() if query else ""
+
+    # Crop keywords mapping for searching in query text
+    crop_keywords = ["paddy", "rice", "wheat", "cotton", "maize", "sugarcane", "soybean", "mustard", "bajra", "moong", "chana", "chickpea", "groundnut", "pigeon pea", "arhar"]
+    mentioned_crops = []
+    for ck in crop_keywords:
+        if ck in query_clean:
+            mentioned_crops.append(ck)
+
+    for scheme in schemes:
+        eligibility = scheme.get("eligibility", {})
+        
+        # 1. State Filter: Match if scheme is national ("All") or matches the state
+        states_list = [s.lower() for s in eligibility.get("states", [])]
+        state_match = "all" in states_list or not state_clean or state_clean in states_list
+        if not state_match:
+            continue
+
+        # 2. Crop Filter: Match if scheme covers all crops ("All") or crop matches or crop is mentioned in query
+        crops_list = [c.lower() for c in eligibility.get("crops", [])]
+        crop_match = "all" in crops_list or not crop_clean or crop_clean in crops_list
+        if not crop_match:
+            # Check if any crop mentioned in query is in the scheme's eligible crops
+            query_crop_match = any(mc in crops_list for mc in mentioned_crops)
+            if not query_crop_match:
+                continue
+
+        # 3. Land Size Filter
+        max_size = eligibility.get("max_land_size")
+        min_size = eligibility.get("min_land_size")
+        
+        size_match = True
+        if parsed_farm_size is not None:
+            if max_size is not None and parsed_farm_size > max_size:
+                size_match = False
+            if min_size is not None and parsed_farm_size < min_size:
+                size_match = False
+        
+        if not size_match:
+            continue
+
+        eligible.append(scheme)
+
+    return eligible
+
+
 # Predefined database of common crop diseases for robust local fallback
 DISEASE_DATABASE = {
     "tomato": {
@@ -485,8 +570,35 @@ def get_local_crop_recommendations(data) -> dict:
 # LOCAL FALLBACK: Chat Response Engine (used when Groq API fails)
 # ─────────────────────────────────────────────────────────────────────
 
-def get_local_chat_response(message: str, observation: dict = None) -> str:
+def get_local_chat_response(message: str, observation: dict = None, retrieved_schemes: list = None) -> str:
     """Generate a helpful local chat response when Groq LLM API is unavailable."""
+
+    # If we have retrieved schemes, format a detailed response of eligible schemes
+    if retrieved_schemes is not None:
+        if not retrieved_schemes:
+            return (
+                "Namaste! 🙏 I searched the government schemes database but couldn't find any specific subsidies matching your exact farm profile.\n\n"
+                "However, you may still be eligible for national programs such as:\n"
+                "  • **PM-KISAN** (Income support of ₹6,000/year for landholding farmers)\n"
+                "  • **PMFBY** (Crop Insurance for notified crops)\n"
+                "  • **PMKSY - Per Drop More Crop** (Subsidy on drip/sprinkler system installation)\n\n"
+                "Please fill in or adjust your farm location, crop, and land size in the Advisor form on the left to check for state-specific programs!"
+            )
+            
+        schemes_str = ""
+        for i, s in enumerate(retrieved_schemes, 1):
+            schemes_str += (
+                f"{i}. **{s['name']}** ({s['type']})\n"
+                f"   • **Benefit:** {s['benefits']}\n"
+                f"   • **Eligibility:** {s['eligibility']['details']}\n"
+                f"   • **How to Apply:** {s['application_process']}\n\n"
+            )
+            
+        return (
+            f"Namaste! 🙏 Based on your farm profile, here are the government schemes and subsidies you are eligible for:\n\n"
+            f"{schemes_str}"
+            f"I hope this helps you access the right government support for your farming! 🌾 Let me know if you need more details about any of these schemes."
+        )
 
     # If we have disease observation from image upload, format a detailed diagnosis response
     if observation:
@@ -1068,7 +1180,11 @@ async def chat_endpoint(
     message: Optional[str] = Form(None),
     history: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
-    email: Optional[str] = Form(None)
+    email: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    district: Optional[str] = Form(None),
+    farm_size: Optional[str] = Form(None),
+    previous_crop: Optional[str] = Form(None)
 ):
     # Parse history if present
     parsed_history = []
@@ -1081,6 +1197,46 @@ async def chat_endpoint(
     image_url = None
     react_steps = []
     observation = None
+
+    retrieved_schemes = []
+    is_scheme_query = False
+    
+    if message:
+        scheme_keywords = ["subsidy", "subsidies", "scheme", "government", "pm-kisan", "insurance", "financial aid", "pmfby", "yojana", "help", "incentive", "benefit", "grant", "pension"]
+        msg_lower = message.lower()
+        if any(kw in msg_lower for kw in scheme_keywords):
+            is_scheme_query = True
+            
+            # Execute RAG retrieval
+            retrieved_schemes = retrieve_eligible_schemes(
+                state=state,
+                crop=previous_crop,
+                farm_size=farm_size,
+                query=message
+            )
+            
+            # Populate ReAct steps in the UI terminal console
+            react_steps.append({
+                "type": "thought",
+                "content": f"Reasoning: The farmer is asking about subsidies or government schemes. I need to retrieve relevant agricultural schemes matching their profile (State: '{state or 'Any'}', Previous Crop: '{previous_crop or 'Any'}', Farm Size: {farm_size or 'Any'} acres)."
+            })
+            
+            args_str = f"state='{state or ''}', crop='{previous_crop or ''}', farm_size='{farm_size or ''}'"
+            react_steps.append({
+                "type": "tool_call",
+                "content": f"Tool Call: government_schemes_db.retrieve_eligible_schemes({args_str})"
+            })
+            
+            scheme_names = [s["name"] for s in retrieved_schemes]
+            react_steps.append({
+                "type": "observation",
+                "content": f"Observation: Retrieved {len(retrieved_schemes)} eligible schemes: {', '.join(scheme_names) if scheme_names else 'None found matching demographic criteria.'}"
+            })
+            
+            react_steps.append({
+                "type": "thought",
+                "content": "Reasoning: I will now present the retrieved schemes (eligibility, benefits, application process) to the farmer in a simplified, supportive format, explaining how they apply to their specific farm size and location."
+            })
 
     if image:
         # Save image locally in UPLOAD_DIR
@@ -1206,7 +1362,44 @@ Prevention:
 Follow up with a supportive message telling them they can ask any questions about this disease, treatment, or precautions!
 """
     else:
-        sys_prompt = f"""
+        if is_scheme_query:
+            schemes_context = ""
+            for i, s in enumerate(retrieved_schemes, 1):
+                schemes_context += (
+                    f"\nScheme {i}: {s['name']}\n"
+                    f"- Type: {s['type']}\n"
+                    f"- Description: {s['description']}\n"
+                    f"- Benefits: {s['benefits']}\n"
+                    f"- Eligibility: {s['eligibility']['details']}\n"
+                    f"- How to Apply: {s['application_process']}\n"
+                )
+                
+            sys_prompt = f"""
+You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers.
+The farmer is asking about subsidies, schemes, or financial aid they are eligible for.
+{memory_context}
+
+We have retrieved the following eligible government schemes matching their farm profile:
+- Selected State: {state or 'Not specified'}
+- Selected District: {district or 'Not specified'}
+- Farm Size: {farm_size or 'Not specified'} acres
+- Previous Crop: {previous_crop or 'Not specified'}
+
+Retrieved Schemes:
+{schemes_context if retrieved_schemes else "No schemes matched the specific criteria. However, general national schemes like PM-KISAN, PMFBY (Crop Insurance), and PMKSY are generally available."}
+
+Communication & Prompt Engineering Rules:
+1. Explain the eligible schemes to the farmer in a simple, friendly, and structured layout.
+2. Clearly highlight:
+   - What the scheme is
+   - The specific benefits (money, pump subsidy, etc.)
+   - Who qualifies (specifically reference their state '{state}' and farm size '{farm_size}' to show how they fit the criteria)
+   - Step-by-step instructions on how they can apply
+3. Keep the tone very encouraging, supportive, and agricultural.
+4. If they haven't provided a state, district, or farm size, advise them that they can fill in their farm advisor form on the left to get a highly customized local list of subsidies.
+"""
+        else:
+            sys_prompt = f"""
 You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers.
 Answer the farmer's question in a simple, friendly, and easy-to-understand conversational language.
 {memory_context}
@@ -1237,7 +1430,10 @@ Prompt Engineering & Communication Rules:
     except Exception as e:
         print(f"Groq API failed for /api/chat: {e}. Using local fallback chat engine...")
         user_text = message or ""
-        final_answer = get_local_chat_response(user_text, observation)
+        if is_scheme_query:
+            final_answer = get_local_chat_response(user_text, observation, retrieved_schemes)
+        else:
+            final_answer = get_local_chat_response(user_text, observation)
 
     return {
         "image_url": image_url,

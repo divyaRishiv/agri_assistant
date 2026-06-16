@@ -1,0 +1,170 @@
+[
+  {
+    "name": "PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)",
+    "type": "Direct Income Support",
+    "description": "A central sector scheme that provides direct financial assistance to landholding farmer families across India to help them buy agricultural inputs and meet household needs.",
+    "benefits": "₹6,000 per year, paid in three equal installments of ₹2,000 directly into the bank accounts of beneficiaries every four months.",
+    "eligibility": {
+      "states": ["All"],
+      "crops": ["All"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "All landholding farmer families who own cultivable land in their names. Excludes institutional landholders and professional taxpayers."
+    },
+    "application_process": "Farmers can self-register via the PM-KISAN portal (pmkisan.gov.in) using their Aadhaar card, land records (Khatauni), and bank details, or apply through the nearest Common Service Centre (CSC)."
+  },
+  {
+    "name": "PMFBY (Pradhan Mantri Fasal Bima Yojana)",
+    "type": "Crop Insurance",
+    "description": "Government-sponsored crop insurance scheme that integrates multiple stakeholders to protect farmers from crop loss due to non-preventable natural calamities, pests, and diseases.",
+    "benefits": "Comprehensive insurance cover against yield losses, localized calamities, and post-harvest losses. Farmers pay very low premium rates: 1.5% for Rabi crops, 2.0% for Kharif crops, and 5.0% for commercial/horticultural crops, with the balance subsidized by the government.",
+    "eligibility": {
+      "states": ["All"],
+      "crops": ["Rice", "Wheat", "Cotton", "Maize", "Sugarcane", "Soybean", "Paddy", "Mustard", "Bajra", "Moong", "Chana", "Chickpea", "Groundnut", "Pigeon Pea", "Arhar"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "All farmers growing notified crops in notified areas, including sharecroppers and tenant farmers, are eligible. Highly recommended for areas prone to erratic monsoon, drought, or floods."
+    },
+    "application_process": "Eligible farmers can apply online through the PMFBY portal (pmfby.gov.in), through cooperative banks, commercial banks, or via insurance agents before the crop-sowing deadline for the season."
+  },
+  {
+    "name": "PMKSY - Per Drop More Crop (Micro Irrigation Subsidy)",
+    "type": "Irrigation Subsidy",
+    "description": "A national program promoting water-use efficiency through modern micro-irrigation technologies like Drip and Sprinkler systems, ensuring 'Per Drop More Crop'.",
+    "benefits": "Financial assistance (subsidies) on the installation cost of drip and sprinkler irrigation systems. Small and marginal farmers receive a 55% subsidy, while other categories of farmers receive 45%. Certain states top this up to 80-90%.",
+    "eligibility": {
+      "states": ["All"],
+      "crops": ["All"],
+      "max_land_size": 12.5,
+      "min_land_size": null,
+      "details": "Farmers owning cultivable land who have access to a permanent water source are eligible. Priority is given to small and marginal farmers (holding less than 5 acres)."
+    },
+    "application_process": "Apply online through the respective state's Horticulture or Agriculture Department portal (e.g., dbt.mpdage.org for MP, or Mahadbt for Maharashtra) or contact the local block horticulture officer."
+  },
+  {
+    "name": "Namo Shetkari Mahasanman Nidhi Yojna (Maharashtra)",
+    "type": "State Subsidy",
+    "description": "Maharashtra government's additional direct income support scheme, designed to run in parallel with the central PM-KISAN scheme.",
+    "benefits": "An additional ₹6,000 per year, paid in three installments of ₹2,000, bringing the total direct financial benefit to Maharashtra farmers to ₹12,000 per year when combined with PM-KISAN.",
+    "eligibility": {
+      "states": ["Maharashtra"],
+      "crops": ["All"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "Active landholding farmers in Maharashtra who are already registered and approved as beneficiaries under the central PM-KISAN scheme."
+    },
+    "application_process": "No separate registration is required. Beneficiaries are automatically identified and mapped from the approved PM-KISAN database of Maharashtra."
+  },
+  {
+    "name": "YSR Rythu Bharosa (Andhra Pradesh)",
+    "type": "State Subsidy",
+    "description": "A comprehensive welfare scheme by the Government of Andhra Pradesh providing substantial financial assistance to agricultural families.",
+    "benefits": "Financial assistance of ₹13,500 per year (including ₹6,000 from central PM-KISAN) for five years to meet seed, fertilizer, and operational costs.",
+    "eligibility": {
+      "states": ["Andhra Pradesh"],
+      "crops": ["All"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "Landowner families in AP. Additionally, tenant farmers belonging to SC, ST, BC, and Minority communities are also fully eligible for the state-funded portion of the benefit."
+    },
+    "application_process": "Registration is carried out through village secretariats, local Rythu Bharosa Kendras (RBKs), or through physical verification by village agricultural assistants."
+  },
+  {
+    "name": "UP Solar Pump Yojana (Kusum Yojana - Component B)",
+    "type": "State Subsidy",
+    "description": "Uttar Pradesh government scheme subsidizing solar-powered water pumps for off-grid irrigation, reducing dependency on costly diesel and unreliable electricity.",
+    "benefits": "Up to 60% subsidy on the purchase and installation of solar pumps ranging from 2 HP to 10 HP (DC and AC surface/submersible models).",
+    "eligibility": {
+      "states": ["Uttar Pradesh"],
+      "crops": ["All"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "Farmers residing and owning cultivable land in Uttar Pradesh with pre-existing borewells or shallow wells suitable for solar pump installations."
+    },
+    "application_process": "Interested farmers must register online on the UP Agriculture Department portal (upagriculture.com) and book solar pumps when tokens are released, by paying a demand draft of the farmer's share."
+  },
+  {
+    "name": "Punjab Crop Residue Management (CRM) Scheme",
+    "type": "State Subsidy",
+    "description": "Punjab government's environmental and agricultural scheme providing heavy subsidies on crop residue management machines to curb stubble burning after paddy harvests.",
+    "benefits": "50% subsidy on the purchase of CRM machinery (such as Happy Seeder, Smart Seeder, Paddy Straw Chopper, Mulcher, Baler, and Rotavator) for individual farmers, and up to 80% subsidy for Cooperative Societies and Farmers Producer Organizations (FPOs) setting up Custom Hiring Centres.",
+    "eligibility": {
+      "states": ["Punjab"],
+      "crops": ["Rice", "Paddy", "Wheat"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "Farmers in Punjab, especially those engaged in rice-wheat crop rotations which generate heavy straw residue."
+    },
+    "application_process": "Apply online through the Punjab Agriculture Department portal (agrimachinerypb.com) during the announced application window, usually before the Kharif harvesting season."
+  },
+  {
+    "name": "Saat Pagla Kalyanna - Tractor & Machinery Subsidy (Gujarat)",
+    "type": "State Subsidy",
+    "description": "Gujarat state scheme aimed at promoting farm mechanization among small and marginal farmers to improve agricultural efficiency.",
+    "benefits": "Subsidies up to ₹45,000 to ₹60,000 on the purchase of small tractors (less than 20 HP) and varying subsidies on power tillers, smart hand-tools, crop protection equipment, and temporary storage sheds.",
+    "eligibility": {
+      "states": ["Gujarat"],
+      "crops": ["All"],
+      "max_land_size": 5.0,
+      "min_land_size": null,
+      "details": "Small and marginal farmers registered in Gujarat holding a valid 8-A land record."
+    },
+    "application_process": "Submit online applications via the Gujarat i-Khedut portal (ikhedut.gujarat.gov.in) and submit printouts with land documents to the local taluka extension officer."
+  },
+  {
+    "name": "Rajasthan Solar Pump & Drip Irrigation Scheme",
+    "type": "State Subsidy",
+    "description": "Rajasthan government's solar pump subsidy scheme combined with micro-irrigation to conserve water in arid and semi-arid regions.",
+    "benefits": "Up to 60% subsidy for general category farmers and up to 75% subsidy for small, marginal, SC, and ST farmers for installing solar water pumps, plus 70% subsidy on drip/sprinkler systems.",
+    "eligibility": {
+      "states": ["Rajasthan"],
+      "crops": ["All"],
+      "max_land_size": null,
+      "min_land_size": 1.2,
+      "details": "Farmers in Rajasthan owning cultivable agricultural land with at least 0.5 hectares of land and a micro-irrigation system installed or planned."
+    },
+    "application_process": "Apply online via the Raj Kisan Saathi portal (rajkisan.rajasthan.gov.in) using Jan Aadhaar card credentials."
+  },
+  {
+    "name": "Mukhyamantri Kisan Kalyan Yojana (Madhya Pradesh)",
+    "type": "State Subsidy",
+    "description": "Madhya Pradesh state welfare scheme providing supplemental direct income support to farmers to offset farming expenses.",
+    "benefits": "An additional ₹4,000 per year (paid in two equal installments of ₹2,000) on top of the central PM-KISAN, bringing total direct support to ₹10,000 per year.",
+    "eligibility": {
+      "states": ["Madhya Pradesh"],
+      "crops": ["All"],
+      "max_land_size": null,
+      "min_land_size": null,
+      "details": "Landowning farmers in Madhya Pradesh who are approved beneficiaries under the PM-KISAN scheme."
+    },
+    "application_process": "Linked automatically to PM-KISAN. Farmers register through their local Patwari or online at the MP Sara portal (sara.mp.gov.in)."
+  },
+  {
+    "name": "Kalaignarin All Village Integrated Agricultural Development Programme (Tamil Nadu)",
+    "type": "State Subsidy",
+    "description": "Tamil Nadu government's comprehensive village welfare scheme targeting water conservation and agricultural input support.",
+    "benefits": "Distribution of agricultural tool kits (spade, crowbar, sickle), 50% subsidy on high-yield seeds and organic fertilizers, and full subsidies for digging farm ponds and installing solar fencing.",
+    "eligibility": {
+      "states": ["Tamil Nadu"],
+      "crops": ["All"],
+      "max_land_size": 5.0,
+      "min_land_size": null,
+      "details": "Preference is given to small and marginal farmers (under 5 acres) residing in notified village panchayats in Tamil Nadu."
+    },
+    "application_process": "Register via the Tamil Nadu Uzhavan App or apply in writing to the local Assistant Director of Agriculture at the block level."
+  },
+  {
+    "name": "Krishi Bhagya Scheme (Karnataka)",
+    "type": "State Subsidy",
+    "description": "Karnataka government scheme aimed at dryland agriculture, focusing on rainwater harvesting and conservation technologies.",
+    "benefits": "Subsidies ranging from 80% to 90% (for SC/ST) for constructing farm ponds (Krishi Honda), purchasing diesel water lifting pumps, and installing protective shade nets and drip irrigation.",
+    "eligibility": {
+      "states": ["Karnataka"],
+      "crops": ["All"],
+      "max_land_size": 12.5,
+      "min_land_size": 1.0,
+      "details": "Farmers practicing dryland agriculture in rainfed blocks of Karnataka. The farm must have space to dig a farm pond."
+    },
+    "application_process": "Apply via the Karnataka State Kaveri/Fruts portal or submit applications directly to the Raitha Samparka Kendra (RSK) in the local block."
+  }
+]

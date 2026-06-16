@@ -13,5 +13,10 @@
     "last_crop": "Rice",
     "last_disease": "Leaf Blight",
     "timestamp": "2026-06-16T22:27:20.556347"
+  },
+  "divya.munnuru@gmail.com": {
+    "last_crop": "Wheat",
+    "last_disease": "Rust",
+    "timestamp": "2026-06-16T23:18:48.380119"
   }
 }
