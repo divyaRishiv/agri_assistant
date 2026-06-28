@@ -1194,253 +1194,48 @@ async def chat_endpoint(
         except Exception:
             pass
 
-    image_url = None
-    react_steps = []
-    observation = None
-
-    retrieved_schemes = []
-    is_scheme_query = False
+    image_path = None
+    image_filename = None
     
-    if message:
-        scheme_keywords = ["subsidy", "subsidies", "scheme", "government", "pm-kisan", "insurance", "financial aid", "pmfby", "yojana", "help", "incentive", "benefit", "grant", "pension"]
-        msg_lower = message.lower()
-        if any(kw in msg_lower for kw in scheme_keywords):
-            is_scheme_query = True
-            
-            # Execute RAG retrieval
-            retrieved_schemes = retrieve_eligible_schemes(
-                state=state,
-                crop=previous_crop,
-                farm_size=farm_size,
-                query=message
-            )
-            
-            # Populate ReAct steps in the UI terminal console
-            react_steps.append({
-                "type": "thought",
-                "content": f"Reasoning: The farmer is asking about subsidies or government schemes. I need to retrieve relevant agricultural schemes matching their profile (State: '{state or 'Any'}', Previous Crop: '{previous_crop or 'Any'}', Farm Size: {farm_size or 'Any'} acres)."
-            })
-            
-            args_str = f"state='{state or ''}', crop='{previous_crop or ''}', farm_size='{farm_size or ''}'"
-            react_steps.append({
-                "type": "tool_call",
-                "content": f"Tool Call: government_schemes_db.retrieve_eligible_schemes({args_str})"
-            })
-            
-            scheme_names = [s["name"] for s in retrieved_schemes]
-            react_steps.append({
-                "type": "observation",
-                "content": f"Observation: Retrieved {len(retrieved_schemes)} eligible schemes: {', '.join(scheme_names) if scheme_names else 'None found matching demographic criteria.'}"
-            })
-            
-            react_steps.append({
-                "type": "thought",
-                "content": "Reasoning: I will now present the retrieved schemes (eligibility, benefits, application process) to the farmer in a simplified, supportive format, explaining how they apply to their specific farm size and location."
-            })
-
     if image:
         # Save image locally in UPLOAD_DIR
         file_ext = os.path.splitext(image.filename)[1]
         if not file_ext:
             file_ext = ".jpg"
-        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        image_filename = f"{uuid.uuid4()}{file_ext}"
         
         # Ensure uploads dir exists
         UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        saved_path = os.path.join(UPLOAD_DIR, unique_filename)
+        image_path = os.path.join(UPLOAD_DIR, image_filename)
         
         try:
-            with open(saved_path, "wb") as buffer:
+            with open(image_path, "wb") as buffer:
                 shutil.copyfileobj(image.file, buffer)
-            
-            # The URL path we will return to the frontend
-            image_url = f"/uploads/{unique_filename}"
-            
-            # Start ReAct agent flow
-            react_steps.append({
-                "type": "thought",
-                "content": "Reasoning: The farmer has uploaded an image of a crop leaf/plant. I need to invoke the disease detection model tool to identify the crop type, disease name, confidence score, symptoms, and potential treatment actions."
-            })
-            
-            react_steps.append({
-                "type": "tool_call",
-                "content": f"Tool Call: disease_detection_model.detect_crop_disease(image='{image.filename}')"
-            })
-            
-            # Run the classifier
-            observation = detect_disease_via_vision(saved_path, image.filename)
-            
-            react_steps.append({
-                "type": "observation",
-                "content": f"Observation: Disease model returned result.\nCrop: {observation['crop']}\nDetected Disease: {observation['disease']}\nConfidence: {observation['confidence']}%\nSymptoms: {observation['symptoms']}"
-            })
-            
-            react_steps.append({
-                "type": "thought",
-                "content": f"Reasoning: The tool successfully identified {observation['crop']} {observation['disease']} ({observation['confidence']}% confidence). I will now generate a friendly, clear explanation with recommended actions focusing on organic solutions, and prevention measures."
-            })
-
-            # Save to memory if email is provided
-            if email and email.strip():
-                cleaned_email = email.strip().lower()
-                memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
-                memory_db = {}
-                if os.path.exists(memory_file):
-                    try:
-                        with open(memory_file, "r", encoding="utf-8") as f:
-                            memory_db = json.load(f)
-                    except Exception:
-                        pass
-                memory_db[cleaned_email] = {
-                    "last_crop": observation['crop'],
-                    "last_disease": observation['disease'],
-                    "timestamp": datetime.datetime.now().isoformat()
-                }
-                try:
-                    with open(memory_file, "w", encoding="utf-8") as f:
-                        json.dump(memory_db, f, indent=2)
-                except Exception as e:
-                    print(f"Error saving chat memory: {e}")
-            
         except Exception as e:
             import traceback
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Error processing upload: {str(e)}")
 
-    # Retrieve memory if present
-    last_crop = None
-    last_disease = None
-    if email and email.strip():
-        cleaned_email = email.strip().lower()
-        memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
-        if os.path.exists(memory_file):
-            try:
-                with open(memory_file, "r", encoding="utf-8") as f:
-                    memory_db = json.load(f)
-                user_mem = memory_db.get(cleaned_email)
-                if user_mem:
-                    last_crop = user_mem.get("last_crop")
-                    last_disease = user_mem.get("last_disease")
-            except Exception:
-                pass
-
-    # Prepare system prompt
-    memory_context = ""
-    if last_crop and last_disease:
-        memory_context = f"\nNote: The farmer's crop previously suffered from {last_disease} on {last_crop}. If relevant or asked, feel free to reference this history to provide a highly personalized, contextual experience."
-
-    if observation:
-        actions_str = "\n".join([f"- {action}" for action in observation['recommended_action']])
-        prevention_str = "\n".join([f"- {prev}" for prev in observation['prevention']])
-        
-        sys_prompt = f"""
-You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers. 
-A farmer has uploaded an image of a crop leaf and the disease detection tool returned this result:
-{json.dumps(observation, indent=2)}
-{memory_context}
-
-Explain these results to the farmer in simple, friendly, conversational language.
-
-Communication & Prompt Engineering Rules:
-1. Keep responses short and easy to understand.
-2. Use warm, agriculture-friendly, and simple language.
-3. Focus heavily on organic, safe, and natural treatments. Do NOT provide unsafe chemical pesticide recommendations.
-4. If the confidence score is below 70%, recommend consulting a local agriculture expert.
-5. You MUST include the details in this exact visual format in your response:
-
-Detected Disease: {observation['crop']} - {observation['disease']}
-Confidence: {observation['confidence']}%
-Symptoms: {observation['symptoms']}
-
-Recommended Action:
-{actions_str}
-
-Prevention:
-{prevention_str}
-
-Follow up with a supportive message telling them they can ask any questions about this disease, treatment, or precautions!
-"""
-    else:
-        if is_scheme_query:
-            schemes_context = ""
-            for i, s in enumerate(retrieved_schemes, 1):
-                schemes_context += (
-                    f"\nScheme {i}: {s['name']}\n"
-                    f"- Type: {s['type']}\n"
-                    f"- Description: {s['description']}\n"
-                    f"- Benefits: {s['benefits']}\n"
-                    f"- Eligibility: {s['eligibility']['details']}\n"
-                    f"- How to Apply: {s['application_process']}\n"
-                )
-                
-            sys_prompt = f"""
-You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers.
-The farmer is asking about subsidies, schemes, or financial aid they are eligible for.
-{memory_context}
-
-We have retrieved the following eligible government schemes matching their farm profile:
-- Selected State: {state or 'Not specified'}
-- Selected District: {district or 'Not specified'}
-- Farm Size: {farm_size or 'Not specified'} acres
-- Previous Crop: {previous_crop or 'Not specified'}
-
-Retrieved Schemes:
-{schemes_context if retrieved_schemes else "No schemes matched the specific criteria. However, general national schemes like PM-KISAN, PMFBY (Crop Insurance), and PMKSY are generally available."}
-
-Communication & Prompt Engineering Rules:
-1. Explain the eligible schemes to the farmer in a simple, friendly, and structured layout.
-2. Clearly highlight:
-   - What the scheme is
-   - The specific benefits (money, pump subsidy, etc.)
-   - Who qualifies (specifically reference their state '{state}' and farm size '{farm_size}' to show how they fit the criteria)
-   - Step-by-step instructions on how they can apply
-3. Keep the tone very encouraging, supportive, and agricultural.
-4. If they haven't provided a state, district, or farm size, advise them that they can fill in their farm advisor form on the left to get a highly customized local list of subsidies.
-"""
-        else:
-            sys_prompt = f"""
-You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers.
-Answer the farmer's question in a simple, friendly, and easy-to-understand conversational language.
-{memory_context}
-
-Prompt Engineering & Communication Rules:
-1. Keep responses short and direct. Avoid complex scientific terminology.
-2. Use agriculture-friendly language.
-3. Recommend organic and safe solutions. Do NOT suggest unsafe chemical pesticides.
-4. Be supportive and encourage the farmer in their work.
-"""
-
-    messages = [{"role": "system", "content": sys_prompt}]
-    for msg in parsed_history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
-    
-    if message:
-        messages.append({"role": "user", "content": message})
-    elif image and not message:
-        messages.append({"role": "user", "content": "Analyze this uploaded image and tell me about any diseases and how to treat them."})
-
+    # Delegate logic to LangGraph Agent
+    from agent import run_agri_agent
     try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=0.4,
+        result = await run_agri_agent(
+            message=message,
+            history=parsed_history,
+            email=email,
+            state=state,
+            district=district,
+            farm_size=farm_size,
+            previous_crop=previous_crop,
+            image_path=image_path,
+            image_filename=image_filename
         )
-        final_answer = response.choices[0].message.content
+        return result
     except Exception as e:
-        print(f"Groq API failed for /api/chat: {e}. Using local fallback chat engine...")
-        user_text = message or ""
-        if is_scheme_query:
-            final_answer = get_local_chat_response(user_text, observation, retrieved_schemes)
-        else:
-            final_answer = get_local_chat_response(user_text, observation)
-
-    return {
-        "image_url": image_url,
-        "react_steps": react_steps,
-        "final_answer": final_answer,
-        "disease_details": observation
-    }
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error running LangGraph agent: {str(e)}")
 
 # ─────────────────────────────────────────────────────────────────────
 # LIVE MANDI MARKET PRICES ENGINE

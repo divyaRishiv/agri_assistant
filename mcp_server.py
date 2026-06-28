@@ -97,55 +97,43 @@ def detect_crop_disease(image_path: str) -> str:
 
 
 @mcp.tool()
-def chat_with_agri_assistant(message: str, disease_observation_json: Optional[str] = None) -> str:
+async def chat_with_agri_assistant(
+    message: str, 
+    disease_observation_json: Optional[str] = None,
+    state: Optional[str] = None,
+    previous_crop: Optional[str] = None,
+    farm_size: Optional[str] = None
+) -> str:
     """
-    Chat with Kisan Mitra AI to seek crop health advice, organic treatment, or agricultural precautions.
+    Chat with Kisan Mitra AI to seek crop health advice, organic treatment, government schemes, or mandi prices.
     
     Args:
         message: The farmer's question or message
         disease_observation_json: Optional JSON string of the diagnosed disease details to provide context
+        state: Optional Indian state (e.g. Maharashtra, Punjab) to check for schemes or mandi rates
+        previous_crop: Optional crop type (e.g. Wheat) to personalize schemes
+        farm_size: Optional farm size in acres to calculate eligibility
     """
+    import json
     observation = None
     if disease_observation_json:
         try:
-            import json
             observation = json.loads(disease_observation_json)
         except Exception:
             pass
             
-    # Try calling the standard OpenAI client first, fall back to local rule engine
-    sys_prompt = "You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers. Answer the farmer's question in a simple, friendly, and easy-to-understand conversational language."
-    
-    if observation:
-        actions_str = "\n".join([f"- {action}" for action in observation.get('recommended_action', [])])
-        prevention_str = "\n".join([f"- {prev}" for prev in observation.get('prevention', [])])
-        
-        sys_prompt = f"""
-You are Kisan Mitra AI, a warm, helpful, and scientific Agriculture Assistant for Indian farmers. 
-A farmer has uploaded an image of a crop leaf and the disease detection tool returned this result:
-{json.dumps(observation, indent=2)}
-
-Explain these results to the farmer in simple, friendly, conversational language.
-Rules:
-1. Keep responses short and easy to understand.
-2. Focus heavily on organic, safe, and natural treatments.
-3. Include standard visual blocks for Detected Disease, Confidence, Symptoms, Recommended Action, and Prevention.
-"""
-    
-    messages = [
-        {"role": "system", "content": sys_prompt},
-        {"role": "user", "content": message}
-    ]
-    
+    from agent import run_agri_agent
     try:
-        response = openai_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=0.4,
+        result = await run_agri_agent(
+            message=message,
+            history=[],
+            state=state,
+            previous_crop=previous_crop or (observation.get("crop") if observation else None),
+            farm_size=farm_size
         )
-        return response.choices[0].message.content
-    except Exception:
-        return get_local_chat_response(message, observation)
+        return result.get("final_answer", "")
+    except Exception as e:
+        return f"Error running LangGraph agent: {str(e)}"
 
 
 if __name__ == "__main__":
