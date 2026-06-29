@@ -11,7 +11,7 @@ from email.mime.base import MIMEBase
 from email.encoders import encode_base64
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from openai import OpenAI
@@ -789,8 +789,8 @@ class FarmData(BaseModel):
 
 
 def generate_pdf_report(data: FarmData, rec_data: dict) -> str:
-    # Ensure reports folder exists inside uploads
-    reports_dir = os.path.join(os.path.dirname(__file__), "uploads", "reports")
+    # Use /tmp for writable storage (required for Vercel and other serverless platforms)
+    reports_dir = os.path.join("/tmp", "reports")
     os.makedirs(reports_dir, exist_ok=True)
     
     unique_id = uuid.uuid4().hex[:8]
@@ -950,7 +950,7 @@ def generate_pdf_report(data: FarmData, rec_data: dict) -> str:
             story.append(Paragraph(f"<b>{crop.get('name')}:</b> {crop.get('reason')}", body_style))
             
     doc.build(story)
-    return f"/uploads/reports/{filename}"
+    return f"/api/report/{filename}"
 
 
 def send_email_report(to_email: str, pdf_rel_path: str):
@@ -974,7 +974,9 @@ def send_email_report(to_email: str, pdf_rel_path: str):
         print(f"Invalid recipient email address: '{to_email}'. Skipping email delivery.")
         return False
 
-    pdf_abs_path = os.path.join(os.path.dirname(__file__), pdf_rel_path.lstrip("/").replace("/", os.sep))
+    # Resolve PDF path: /api/report/<filename> -> /tmp/reports/<filename>
+    report_filename = os.path.basename(pdf_rel_path)
+    pdf_abs_path = os.path.join("/tmp", "reports", report_filename)
 
     if not SMTP_USER or not SMTP_PASSWORD:
         print(f"SMTP Credentials not configured in .env. Skipping email delivery of {pdf_abs_path} to {to_email}.")
@@ -1143,7 +1145,7 @@ Rules:
 
 @app.get("/api/chat/memory")
 async def get_chat_memory(email: str):
-    memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
+    memory_file = os.path.join("/tmp", "chat_memory.json")
     if os.path.exists(memory_file):
         try:
             with open(memory_file, "r", encoding="utf-8") as f:
@@ -1158,7 +1160,7 @@ async def get_chat_memory(email: str):
 
 @app.delete("/api/chat/memory")
 async def delete_chat_memory(email: str):
-    memory_file = os.path.join(os.path.dirname(__file__), "uploads", "chat_memory.json")
+    memory_file = os.path.join("/tmp", "chat_memory.json")
     if os.path.exists(memory_file):
         try:
             with open(memory_file, "r", encoding="utf-8") as f:
@@ -1204,8 +1206,8 @@ async def chat_endpoint(
             file_ext = ".jpg"
         image_filename = f"{uuid.uuid4()}{file_ext}"
         
-        # Ensure uploads dir exists
-        UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+        # Ensure uploads dir exists (use /tmp for Vercel serverless compatibility)
+        UPLOAD_DIR = os.path.join("/tmp", "uploads")
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         image_path = os.path.join(UPLOAD_DIR, image_filename)
         
@@ -1336,15 +1338,21 @@ async def get_market_prices(state: Optional[str] = None):
     random.seed()
     return {"prices": results}
 
-# Mount static files for uploaded images
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# API endpoint to serve generated PDF reports from /tmp (Vercel has no persistent disk)
 
-# Serve React static files in production
-frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+@app.get("/api/report/{filename}")
+async def serve_report(filename: str):
+    """Serve a generated PDF report from the /tmp directory."""
+    # Sanitize filename to prevent directory traversal
+    safe_filename = os.path.basename(filename)
+    report_path = os.path.join("/tmp", "reports", safe_filename)
+    if not os.path.exists(report_path):
+        raise HTTPException(status_code=404, detail="Report not found")
+    return FileResponse(
+        path=report_path,
+        media_type="application/pdf",
+        filename=safe_filename
+    )
 
 if __name__ == "__main__":
     import uvicorn
