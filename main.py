@@ -1354,6 +1354,17 @@ async def serve_report(filename: str):
         filename=safe_filename
     )
 
+@app.get("/api/evals/run")
+async def run_evaluations_api():
+    """API endpoint to run the automated evaluation benchmark suite and return summary metrics."""
+    from evals.evaluator import EvaluationRunner
+    dataset_file = os.path.join(os.path.dirname(__file__), "evals", "dataset.json")
+    if not os.path.exists(dataset_file):
+        raise HTTPException(status_code=404, detail="Evaluation dataset not found")
+    runner = EvaluationRunner(dataset_file)
+    summary = await runner.run_all()
+    return summary
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

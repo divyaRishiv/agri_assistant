@@ -406,6 +406,11 @@ Prompt Engineering & Communication Rules:
         else:
             final_answer = get_local_chat_response(message or "", observation)
 
+    # Apply Output Guardrails
+    from guardrails import apply_output_guardrails
+    output_guard = apply_output_guardrails(final_answer, {"observation": observation})
+    final_answer = output_guard.sanitized_answer
+
     return {
         "final_answer": final_answer
     }
@@ -483,6 +488,20 @@ async def run_agri_agent(
         "final_answer": ""
     }
     
+    # Run Input Guardrails check
+    from guardrails import apply_input_guardrails
+    input_guard = apply_input_guardrails(message or "", {"state": state, "previous_crop": previous_crop, "image_path": image_path})
+    if not input_guard.is_safe and input_guard.override_response:
+        return {
+            "image_url": None,
+            "react_steps": [{
+                "type": "thought",
+                "content": f"Reasoning: Input guardrail intercepted query ({input_guard.action}). Returning safety boundary response."
+            }],
+            "final_answer": input_guard.override_response,
+            "disease_details": None
+        }
+
     # Run the graph asynchronously
     result = await compiled_graph.ainvoke(initial_state)
     
