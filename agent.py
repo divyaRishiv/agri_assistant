@@ -408,7 +408,7 @@ Prompt Engineering & Communication Rules:
 
     # Apply Output Guardrails
     from guardrails import apply_output_guardrails
-    output_guard = apply_output_guardrails(final_answer, {"observation": observation})
+    output_guard = apply_output_guardrails(final_answer, {"observation": observation, "message": message})
     final_answer = output_guard.sanitized_answer
 
     return {

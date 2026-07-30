@@ -118,7 +118,7 @@ def apply_output_guardrails(final_answer: str, context: Optional[dict] = None) -
         warning_msg = f"Referenced/Queried restricted chemical(s): {', '.join(all_found_chemicals)}."
         warnings.append(warning_msg)
         
-        if "safety advisory" not in ans_lower and "safety precautions" not in ans_lower:
+        if "important safety advisory" not in ans_lower and "safety advisory" not in ans_lower:
             safety_disclaimer = (
                 "\n\n⚠️ **IMPORTANT SAFETY ADVISORY**: "
                 f"The chemical pesticide ({', '.join(all_found_chemicals).capitalize()}) is classified as highly restricted/toxic. "
@@ -133,7 +133,7 @@ def apply_output_guardrails(final_answer: str, context: Optional[dict] = None) -
     if observation and isinstance(observation, dict):
         confidence = observation.get("confidence")
         if isinstance(confidence, (int, float)) and confidence < 70:
-            if "krishi vigyan kendra" not in ans_lower and "local agriculture officer" not in ans_lower:
+            if "expert consultation advisory" not in ans_lower and "expert referral advisory" not in ans_lower:
                 expert_disclaimer = (
                     "\n\n📢 **EXPERT CONSULTATION ADVISORY**: "
                     f"The disease diagnosis confidence is currently **{confidence}%** (below 70%). "
