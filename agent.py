@@ -20,6 +20,7 @@ class AgentState(TypedDict):
     # Files/Upload details
     image_path: Optional[str]
     image_filename: Optional[str]
+    original_filename: Optional[str]
     image_url: Optional[str]
     
     # Internal agent steps & outputs
@@ -79,7 +80,8 @@ async def diagnose_disease_node(state: AgentState) -> Dict[str, Any]:
     # Run vision model diagnosis
     from main import detect_disease_via_vision
     image_path = state.get("image_path")
-    observation = detect_disease_via_vision(image_path, image_filename)
+    original_filename = state.get("original_filename")
+    observation = detect_disease_via_vision(image_path, image_filename, original_filename)
     
     steps.append({
         "type": "observation",
@@ -462,7 +464,8 @@ async def run_agri_agent(
     irrigation: Optional[str] = None,
     water_source: Optional[str] = None,
     image_path: Optional[str] = None,
-    image_filename: Optional[str] = None
+    image_filename: Optional[str] = None,
+    original_filename: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Executes the Kisan Mitra LangGraph state machine workflow.
@@ -480,6 +483,7 @@ async def run_agri_agent(
         "water_source": water_source,
         "image_path": image_path,
         "image_filename": image_filename,
+        "original_filename": original_filename,
         "image_url": None,
         "react_steps": [],
         "observation": None,

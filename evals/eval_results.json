@@ -76,7 +76,7 @@
       "description": "Inquiring about live mandi rates for onion in Maharashtra",
       "passed": true,
       "reasons": [],
-      "output_snippet": "Namaste! \ud83d\ude4f Here are the latest mandi market prices I retrieved for you:\n\n  \u2022 **Onion** in **Pune Mandi, Maharashtra**: \u20b92310/quintal (up trend)\n\nI hop..."
+      "output_snippet": "Namaste! \ud83d\ude4f Here are the latest mandi market prices I retrieved for you:\n\n  \u2022 **Onion** in **Pune Mandi, Maharashtra**: \u20b92244/quintal (up trend)\n\nI hop..."
     },
     {
       "case_id": "TC-09",
@@ -84,7 +84,7 @@
       "description": "Disease diagnosis with confidence score under 70%",
       "passed": true,
       "reasons": [],
-      "output_snippet": "Namaste! \ud83d\ude4f I have analyzed the image you uploaded of your crop leaf. Here is the diagnostic report:\n\n\ud83c\udf3f **Detected Disease:** Paddy \u2014 Brown Spot\n\ud83d\udcca **Co..."
+      "output_snippet": "Namaste! \ud83d\ude4f I have analyzed the image you uploaded of your crop leaf. Here is the diagnostic report:\n\nDetected Disease: Paddy - Brown Spot\nConfidence: ..."
     },
     {
       "case_id": "TC-10",
@@ -92,7 +92,7 @@
       "description": "Disease diagnosis response visual structure header check",
       "passed": true,
       "reasons": [],
-      "output_snippet": "Namaste! \ud83d\ude4f I have analyzed the image you uploaded of your crop leaf. Here is the diagnostic report:\n\n\ud83c\udf3f **Detected Disease:** Tomato \u2014 Early Blight\n\ud83d\udcca *..."
+      "output_snippet": "Namaste! \ud83d\ude4f I have analyzed the image you uploaded of your crop leaf. Here is the diagnostic report:\n\nDetected Disease: Tomato - Early Blight\nConfidenc..."
     }
   ]
 }
