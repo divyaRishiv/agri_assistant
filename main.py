@@ -25,6 +25,9 @@ from reportlab.lib.units import inch
 
 load_dotenv()
 
+import agri_intelligence_db as agri_db
+import agri_engine
+
 # ─────────────────────────────────────────────────────────────────────
 # RAG RETRIEVAL ENGINE: Government Schemes
 # ─────────────────────────────────────────────────────────────────────
@@ -808,6 +811,35 @@ class FarmData(BaseModel):
     farm_size: Optional[str] = ""
     previous_crop: Optional[str] = ""
 
+# Pydantic models for V2 Market Intelligence & Crop Planner
+class WhatIfRequest(BaseModel):
+    state: str
+    district: str
+    mandal: Optional[str] = "Central Mandal"
+    selected_crop: str
+    additional_farmers: Optional[int] = 10
+    additional_acres: Optional[float] = 20.0
+    target_harvest_month: Optional[int] = 6
+
+class CropPlanRequest(BaseModel):
+    plan_id: Optional[str] = None
+    email: str
+    farmer_name: Optional[str] = "Farmer"
+    phone: Optional[str] = ""
+    state: str
+    district: str
+    mandal: Optional[str] = "Central Mandal"
+    village: Optional[str] = "Village 1"
+    crop_name: str
+    acreage: float
+    sowing_date: str
+    expected_harvest_date: str
+    status: Optional[str] = "Planned"
+    notes: Optional[str] = ""
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
 
 def generate_pdf_report(data: FarmData, rec_data: dict) -> str:
     # Use /tmp for writable storage (required for Vercel and other serverless platforms)
@@ -1376,16 +1408,131 @@ async def serve_report(filename: str):
         filename=safe_filename
     )
 
-@app.get("/api/evals/run")
-async def run_evaluations_api():
-    """API endpoint to run the automated evaluation benchmark suite and return summary metrics."""
-    from evals.evaluator import EvaluationRunner
-    dataset_file = os.path.join(os.path.dirname(__file__), "evals", "dataset.json")
-    if not os.path.exists(dataset_file):
-        raise HTTPException(status_code=404, detail="Evaluation dataset not found")
-    runner = EvaluationRunner(dataset_file)
-    summary = await runner.run_all()
-    return summary
+# ─────────────────────────────────────────────────────────────────────
+# V2 MARKET INTELLIGENCE & CROP PLANNER API ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/v2/crop-recommendations")
+async def get_v2_crop_recommendations(
+    state: str = "Andhra Pradesh",
+    district: str = "Guntur",
+    mandal: str = "Tenali",
+    village: str = "Angalakuduru",
+    soil_type: str = "Black Soil",
+    water_availability: str = "Medium",
+    farm_size: float = 2.0,
+    season: str = "Kharif",
+    harvest_month: int = 6
+):
+    try:
+        recommendations = agri_engine.calculate_crop_recommendations(
+            state=state,
+            district=district,
+            mandal=mandal,
+            village=village,
+            soil_type=soil_type,
+            water_availability=water_availability,
+            farm_size_acres=farm_size,
+            season=season,
+            target_harvest_month=harvest_month
+        )
+        return recommendations
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Recommendation engine error: {str(e)}")
+
+@app.get("/api/v2/regional-supply")
+async def get_v2_regional_supply(
+    state: str = "Andhra Pradesh",
+    district: str = "Guntur",
+    mandal: Optional[str] = None,
+    village: Optional[str] = None,
+    harvest_month: Optional[int] = 6
+):
+    try:
+        aggregates = agri_db.get_regional_supply_aggregates(
+            state=state,
+            district=district,
+            mandal=mandal,
+            village=village,
+            harvest_month=harvest_month
+        )
+        return {"status": "success", "supply_aggregates": aggregates}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch supply aggregates: {str(e)}")
+
+@app.get("/api/v2/price-forecast")
+async def get_v2_price_forecast(
+    crop_name: str,
+    state: str = "Andhra Pradesh",
+    district: str = "Guntur",
+    target_month: int = 6
+):
+    try:
+        forecast = agri_engine.forecast_harvest_price(crop_name, state, district, target_month)
+        historical = agri_db.get_historical_prices(crop_name, state, district)
+        return {
+            "status": "success",
+            "forecast": forecast,
+            "historical_prices": historical
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Price forecast error: {str(e)}")
+
+@app.post("/api/v2/what-if")
+async def run_v2_what_if(req: WhatIfRequest):
+    try:
+        res = agri_engine.run_what_if_simulation(
+            state=req.state,
+            district=req.district,
+            mandal=req.mandal or "Central Mandal",
+            selected_crop=req.selected_crop,
+            additional_farmers=req.additional_farmers or 0,
+            additional_acres=req.additional_acres or 0.0,
+            target_harvest_month=req.target_harvest_month or 6
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"What-If simulation error: {str(e)}")
+
+@app.post("/api/v2/crop-plans")
+async def create_or_update_crop_plan(req: CropPlanRequest):
+    try:
+        res = agri_db.register_crop_plan(req.dict())
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to register crop plan: {str(e)}")
+
+@app.get("/api/v2/crop-plans")
+async def list_farmer_crop_plans(email: str):
+    try:
+        plans = agri_db.get_farmer_crop_plans(email)
+        return {"status": "success", "crop_plans": plans}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch crop plans: {str(e)}")
+
+@app.put("/api/v2/crop-plans/{plan_id}")
+async def update_crop_plan_status_endpoint(plan_id: str, req: UpdateStatusRequest):
+    success = agri_db.update_crop_plan_status(plan_id, req.status)
+    if not success:
+        raise HTTPException(status_code=404, detail="Crop plan not found")
+    return {"status": "success", "message": f"Plan status updated to {req.status}"}
+
+@app.delete("/api/v2/crop-plans/{plan_id}")
+async def cancel_crop_plan_endpoint(plan_id: str):
+    success = agri_db.delete_crop_plan(plan_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Crop plan not found")
+    return {"status": "success", "message": "Crop plan cancelled successfully"}
+
+@app.get("/api/v2/alerts")
+async def get_v2_alerts(state: str = "Andhra Pradesh", district: str = "Guntur"):
+    try:
+        alerts = agri_db.get_active_notifications(state, district)
+        return {"status": "success", "alerts": alerts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
